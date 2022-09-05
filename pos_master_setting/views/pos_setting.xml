@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="pos_config_view_form_inherite" model="ir.ui.view">
+        <field name="name">pos.config.form.view</field>
+        <field name="model">pos.config</field>
+        <field name="inherit_id" ref="point_of_sale.pos_config_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="before">
+                <header>
+                    <field name="is_master" invisable="1"></field>
+                    <button string="Change All Shop Setting" name="change_all" class="btn-primary" type="object" attrs="{'invisible': [('is_master', '!=', True)]}"/> 
+                </header>
+            </xpath>
+            
+        </field>
+    </record>
+
+    <record id="res_config_settings_view_form_inherit" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="point_of_sale.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            
+            <xpath expr="//div[hasclass('settings')]" position="inside">
+
+                    <h2 class="app_settings_block">Set Master POS</h2>
+                    <div class="row mt16 o_settings_container" name="gxs_cod_dispersal">
+
+                        <div class="col-12 col-lg-6 o_setting_box">
+
+                            <div class="o_setting_right_pane">
+                                <div class="content-group">
+                                    <group>
+                                        <field name="select_shop" class="oe_inline"/>
+                                    </group>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+            </xpath>
+        </field>
+    </record>
+
+
+
+</odoo>
