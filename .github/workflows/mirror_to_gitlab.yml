@@ -1,0 +1,68 @@
+name: Mirror to GitLab
+
+on:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "**"
+
+jobs:
+  mirror_to_gitlab:
+    runs-on: self-hosted
+
+    # Don’t re-trigger when push comes from Odolution (GitLab CI mirror)
+    if: github.actor != 'odolutiondev'
+
+    steps:
+      - name: Checkout full repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history
+          fetch-tags: true
+
+      - name: Mirror branches & tags to GitLab
+        env:
+          GITLAB_USER: ${{ secrets.GITLAB_USER }}
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+          GITLAB_HOST: ${{ secrets.GITLAB_HOST }}
+        run: |
+          git config user.name  "GitHub Sync Bot"
+          git config user.email "github-sync@local"
+
+          echo "Using GitLab host: $GITLAB_HOST"
+
+          GITLAB_REPO="https://${GITLAB_USER}:${GITLAB_TOKEN}@${GITLAB_HOST}/odoo/${{ github.event.repository.name }}.git"
+
+          git remote remove gitlab || true
+          git remote add gitlab "$GITLAB_REPO"
+
+          # Get full view of all branches & tags from GitHub (origin)
+          git fetch origin --prune --tags
+
+          # Which branch is currently checked out? (usually 'main')
+          current_branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+
+          # Create/update local branches for every origin/* branch, EXCEPT origin/HEAD
+          for remote_ref in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin/); do
+            branch=${remote_ref#origin/}
+
+            if [ "$branch" = "HEAD" ]; then
+              echo "Skipping symbolic ref: $remote_ref"
+              continue
+            fi
+
+            if [ "$branch" = "$current_branch" ]; then
+              echo "Skipping current worktree branch: $branch"
+              continue
+            fi
+
+            echo "Syncing branch: $branch"
+            git branch -f "$branch" "$remote_ref"
+          done
+
+          # Force-push all branches to GitLab (GitHub is source of truth for this direction)
+          git push gitlab --all --force -o ci.skip
+
+          # Force-push all tags (also prune deleted)
+          git push gitlab --tags --force -o ci.skip
