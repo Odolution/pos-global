@@ -1,0 +1,42 @@
+stages:
+  - sync
+
+sync_to_github:
+  stage: sync
+  image: alpine:latest
+  variables:
+    GIT_STRATEGY: fetch
+    GIT_DEPTH: "0"      # full history, no shallow clone
+  before_script:
+    - apk add --no-cache git curl
+    - git config --global user.name "GitLab Sync Bot"
+    - git config --global user.email "gitlab-sync@local"
+    - git remote remove github || true
+    - git remote add github "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/${GITHUB_OWNER}/${CI_PROJECT_NAME}.git"
+  script:
+    # Make sure we have full updated view of origin (GitLab)
+    - git fetch origin --prune --tags
+
+    # Create/update local branches for every origin/* branch, EXCEPT origin/HEAD
+    - |
+      for remote_ref in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin/); do
+        branch=${remote_ref#origin/}
+
+        # Skip the symbolic origin/HEAD ref
+        if [ "$branch" = "HEAD" ]; then
+          echo "Skipping symbolic ref: $remote_ref"
+          continue
+        fi
+
+        echo "Syncing branch: $branch"
+        git branch -f "$branch" "$remote_ref"
+      done
+
+    # 🔥 Force push all branches to GitHub (and prune branches deleted in GitLab)
+    - git push github --all --force
+
+    # 🔥 Force push all tags (and prune deleted tags)
+    - git push github --tags --force
+  only:
+    - branches
+    - tags
